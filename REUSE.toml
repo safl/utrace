@@ -5,7 +5,7 @@ SPDX-PackageDownloadLocation = "https://github.com/safl/utrace"
 # Files that cannot carry a header of their own. A file's own SPDX tags take
 # precedence over these.
 [[annotations]]
-path = ["LICENSE", "README.md"]
+path = ["LICENSE", "README.md", "tests/tp/expected.csv"]
 precedence = "closest"
 SPDX-FileCopyrightText = "Simon A. F. Lund <os@safl.dk>"
 SPDX-License-Identifier = "BSD-3-Clause"

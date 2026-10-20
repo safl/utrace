@@ -34,6 +34,20 @@ const standards = [_]Standard{
     .{ .name = "c++20", .lang = .cpp },
 };
 
+/// examples/gpu_queues.c, held to the same warnings as the headers
+fn example(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
+    const mod = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
+    mod.addIncludePath(b.path("include"));
+    mod.addCSourceFile(.{ .file = b.path("examples/gpu_queues.c"), .flags = &(.{"-std=c99"} ++ warnings) });
+    return b.addExecutable(.{ .name = "gpu_queues", .root_module = mod });
+}
+
+/// The trace the example writes when run
+fn exampleTrace(b: *std.Build, exe: *std.Build.Step.Compile) std.Build.LazyPath {
+    const run = b.addRunArtifact(exe);
+    return run.addOutputFileArg("gpu_queues.pftrace");
+}
+
 /// protoc's FileDescriptorSet of a .proto and everything it imports
 fn descriptorSet(b: *std.Build, include_dir: []const u8, proto: []const u8, basename: []const u8) std.Build.LazyPath {
     const protoc = b.addSystemCommand(&.{ "protoc", "--include_imports" });
@@ -87,6 +101,10 @@ pub fn build(b: *std.Build) void {
         test_step.dependOn(&obj.step);
     }
 
+    const gpu_queues = example(b, target, optimize);
+    b.installArtifact(gpu_queues);
+    const gpu_queues_trace = exampleTrace(b, gpu_queues);
+
     const c = b.addTranslateC(.{ .root_source_file = b.path("tests/c.h"), .target = target, .optimize = optimize });
     c.addIncludePath(b.path("include"));
 
@@ -99,6 +117,7 @@ pub fn build(b: *std.Build) void {
         .{ .file = "tests/trace_test.zig", .c = c },
         .{ .file = "tests/gen_test.zig", .c = gen_c },
         .{ .file = "tests/descriptor_test.zig", .c = null },
+        .{ .file = "tests/example_test.zig", .c = null },
     };
     for (zig_tests) |t| {
         const mod = b.createModule(.{
@@ -112,7 +131,24 @@ pub fn build(b: *std.Build) void {
         mod.addAnonymousImport("all_types.pb", .{ .root_source_file = all_types });
         mod.addAnonymousImport("descriptor.pb", .{ .root_source_file = descriptor });
         mod.addAnonymousImport("perfetto.pb", .{ .root_source_file = perfetto });
+        mod.addAnonymousImport("gpu_queues.pftrace", .{ .root_source_file = gpu_queues_trace });
         const exe = b.addTest(.{ .name = std.fs.path.stem(t.file), .root_module = mod });
         test_step.dependOn(&b.addRunArtifact(exe).step);
+    }
+
+    const tp_step = b.step("tp", "Check the example's trace with trace_processor (-Dtrace-processor=<trace_processor_shell>)");
+    if (b.option([]const u8, "trace-processor", "Path to Perfetto's trace_processor_shell, for zig build tp")) |tp| {
+        const query = b.addSystemCommand(&.{ tp, "query", "-f" });
+        query.addFileArg(b.path("tests/tp/queries.sql"));
+        query.addFileArg(gpu_queues_trace);
+        const got = query.captureStdOut(.{});
+        // progress and timings, which would read as failures in the build's output
+        _ = query.captureStdErr(.{});
+        const diff = b.addSystemCommand(&.{ "diff", "-u" });
+        diff.addFileArg(b.path("tests/tp/expected.csv"));
+        diff.addFileArg(got);
+        tp_step.dependOn(&diff.step);
+    } else {
+        tp_step.dependOn(&b.addFail("zig build tp needs -Dtrace-processor=<path to trace_processor_shell>").step);
     }
 }
