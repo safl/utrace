@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Vendored files stay as upstream wrote them, so the whitespace hooks leave
+# third-party/ alone. The generated headers are excluded from clang-format:
+# the generator decides their layout and CI checks they match its output.
+exclude: ^third-party/
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-toml
+
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v6.2.0
+    hooks:
+      - id: reuse
+
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v21.1.8
+    hooks:
+      - id: clang-format
+        types_or: [c, c++]
+        exclude: ^include/utrace/perfetto/
+
+  - repo: local
+    hooks:
+      - id: zig-fmt
+        name: zig fmt
+        language: system
+        entry: zig fmt
+        files: \.(zig|zon)$
