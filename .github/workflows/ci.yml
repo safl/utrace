@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# lint runs pre-commit. test regenerates the Perfetto writers and fails if
+# they differ from what is committed, runs zig build test natively and on
+# big-endian s390x, the sanitizer builds, and loads the example's trace with
+# a pinned trace_processor. cross runs the example on four architectures
+# under qemu and compares the traces.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  ZIG_VERSION: 0.16.0
+  PERFETTO_RELEASE: v58.2
+  # of linux-amd64.zip in that release, as GitHub lists it
+  PERFETTO_LINUX_AMD64_SHA256: 32c739f71b2d39721afd294c0b038f2499a44a71b5b6bcdd85b83faca0b240b9
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - run: pipx run pre-commit run --all-files --show-diff-on-failure
+
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - run: sudo apt-get update && sudo apt-get install -y protobuf-compiler qemu-user
+      - name: the generated headers are what tools/gen makes of the vendored protos
+        run: |
+          zig build gen
+          git status --porcelain -- include
+          test -z "$(git status --porcelain -- include)"
+      - run: zig build test --summary all
+      - run: zig build test -Dtarget=s390x-linux-musl -fqemu --summary all
+      - run: zig build asan --summary all
+      - name: trace_processor ${{ env.PERFETTO_RELEASE }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/perfetto"
+          cd "$RUNNER_TEMP/perfetto"
+          curl -fsSLO "https://github.com/google/perfetto/releases/download/$PERFETTO_RELEASE/linux-amd64.zip"
+          echo "$PERFETTO_LINUX_AMD64_SHA256  linux-amd64.zip" | sha256sum -c
+          unzip -q linux-amd64.zip linux-amd64/trace_processor_shell
+          chmod +x linux-amd64/trace_processor_shell
+      - run: zig build tp -Dtrace-processor="$RUNNER_TEMP/perfetto/linux-amd64/trace_processor_shell" --summary all
+
+  cross:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - run: sudo apt-get update && sudo apt-get install -y qemu-user
+      - run: zig build cross -fqemu --summary all
