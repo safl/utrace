@@ -17,3 +17,10 @@ path = ["third-party/perfetto/protos/**", "third-party/perfetto/VERSION"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "The Android Open Source Project"
 SPDX-License-Identifier = "Apache-2.0"
+
+# protobuf's descriptor.proto, vendored unmodified for the tests of tools/pb.zig.
+[[annotations]]
+path = "third-party/protobuf/google/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Google Inc."
+SPDX-License-Identifier = "BSD-3-Clause"
