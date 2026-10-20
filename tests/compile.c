@@ -5,7 +5,7 @@
  */
 /*
  * Compiled as C99, C11, C17, C++11, C++17 and C++20 with warnings as errors, so every header is
- * held to each of them. The function calls what a header defines, so its bodies are instantiated.
+ * held to each of them. The functions call what the headers define, and tests/smoke.c runs them.
  */
 #include <utrace_pb.h>
 #include <utrace.h>
@@ -51,8 +51,8 @@ utrace_compile_check_api(void);
 int
 utrace_compile_check_api(void)
 {
-	uint8_t buf[1024];
-	uint8_t out[1024];
+	uint8_t buf[4096];
+	uint8_t out[4096];
 	struct utrace_pb_mem mem = {out, sizeof(out), 0};
 	struct utrace_clock clocks[1];
 	struct utrace_opts opts;

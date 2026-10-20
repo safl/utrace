@@ -34,6 +34,15 @@ const standards = [_]Standard{
     .{ .name = "c++20", .lang = .cpp },
 };
 
+/// Where the example runs in zig build cross; its trace must come out the same on each, and
+/// s390x is big-endian
+const cross_targets = [_][]const u8{
+    "x86_64-linux-musl",
+    "aarch64-linux-musl",
+    "riscv64-linux-musl",
+    "s390x-linux-musl",
+};
+
 /// examples/gpu_queues.c, held to the same warnings as the headers
 fn example(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
     const mod = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
@@ -95,10 +104,12 @@ pub fn build(b: *std.Build) void {
         mod.addIncludePath(b.path("include"));
         mod.addIncludePath(all_types_dir);
         const flags = b.dupeStrings(&(.{b.fmt("-std={s}", .{s.name})} ++ warnings));
-        mod.addCSourceFile(.{ .file = b.path("tests/compile.c"), .language = s.lang, .flags = flags });
-        mod.addCSourceFile(.{ .file = b.path("tests/gen/compile.c"), .language = s.lang, .flags = flags });
-        const obj = b.addObject(.{ .name = b.fmt("compile-{s}", .{s.name}), .root_module = mod });
-        test_step.dependOn(&obj.step);
+        for ([_][]const u8{ "tests/compile.c", "tests/gen/compile.c", "tests/smoke.c" }) |file| {
+            mod.addCSourceFile(.{ .file = b.path(file), .language = s.lang, .flags = flags });
+        }
+        if (s.lang == .cpp) mod.link_libcpp = true;
+        const exe = b.addExecutable(.{ .name = b.fmt("smoke-{s}", .{s.name}), .root_module = mod });
+        test_step.dependOn(&b.addRunArtifact(exe).step);
     }
 
     const gpu_queues = example(b, target, optimize);
@@ -136,11 +147,53 @@ pub fn build(b: *std.Build) void {
         test_step.dependOn(&b.addRunArtifact(exe).step);
     }
 
+    const cross_step = b.step("cross", "Run the example on each of cross_targets and compare its traces (needs -fqemu)");
+    const native_trace = exampleTrace(b, example(b, b.graph.host, optimize));
+    for (cross_targets) |name| {
+        const query = std.Target.Query.parse(.{ .arch_os_abi = name }) catch unreachable;
+        const trace = exampleTrace(b, example(b, b.resolveTargetQuery(query), optimize));
+        const cmp = b.addSystemCommand(&.{"cmp"});
+        cmp.addFileArg(native_trace);
+        cmp.addFileArg(trace);
+        cross_step.dependOn(&cmp.step);
+    }
+
+    // AddressSanitizer is not in Zig's toolchain, so this takes the system's compilers
+    const asan_step = b.step("asan", "Run the smoke test and the example built with the system cc and c++ under ASan and UBSan");
+    const sanitize = [_][]const u8{ "-fsanitize=address,undefined", "-fno-sanitize-recover=all", "-g" };
+    for ([_][2][]const u8{ .{ "cc", "-std=c11" }, .{ "c++", "-std=c++17" } }) |cc| {
+        const build_smoke = b.addSystemCommand(&.{ cc[0], cc[1] });
+        build_smoke.addArgs(&(sanitize ++ warnings));
+        build_smoke.addPrefixedDirectoryArg("-I", b.path("include"));
+        if (std.mem.eql(u8, cc[0], "c++")) build_smoke.addArgs(&.{ "-x", "c++" });
+        build_smoke.addFileArg(b.path("tests/compile.c"));
+        build_smoke.addFileArg(b.path("tests/smoke.c"));
+        build_smoke.addArg("-o");
+        const smoke = build_smoke.addOutputFileArg(b.fmt("smoke-{s}", .{cc[0]}));
+        const run_smoke = std.Build.Step.Run.create(b, b.fmt("run smoke-{s}", .{cc[0]}));
+        run_smoke.addFileArg(smoke);
+        run_smoke.expectExitCode(0);
+        asan_step.dependOn(&run_smoke.step);
+    }
+    const build_example = b.addSystemCommand(&.{ "cc", "-std=c99" });
+    build_example.addArgs(&(sanitize ++ warnings));
+    build_example.addPrefixedDirectoryArg("-I", b.path("include"));
+    build_example.addFileArg(b.path("examples/gpu_queues.c"));
+    build_example.addArg("-o");
+    const asan_example = build_example.addOutputFileArg("gpu_queues");
+    const run_example = std.Build.Step.Run.create(b, "run gpu_queues");
+    run_example.addFileArg(asan_example);
+    const asan_trace = run_example.addOutputFileArg("gpu_queues.pftrace");
+    const cmp_asan = b.addSystemCommand(&.{"cmp"});
+    cmp_asan.addFileArg(native_trace);
+    cmp_asan.addFileArg(asan_trace);
+    asan_step.dependOn(&cmp_asan.step);
+
     const tp_step = b.step("tp", "Check the example's trace with trace_processor (-Dtrace-processor=<trace_processor_shell>)");
     if (b.option([]const u8, "trace-processor", "Path to Perfetto's trace_processor_shell, for zig build tp")) |tp| {
         const query = b.addSystemCommand(&.{ tp, "query", "-f" });
         query.addFileArg(b.path("tests/tp/queries.sql"));
-        query.addFileArg(gpu_queues_trace);
+        query.addFileArg(native_trace);
         const got = query.captureStdOut(.{});
         // progress and timings, which would read as failures in the build's output
         _ = query.captureStdErr(.{});
