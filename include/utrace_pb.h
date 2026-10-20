@@ -231,22 +231,34 @@ utrace_pb_field_fixed32(struct utrace_pb_writer *w, uint32_t field, uint32_t v)
 	utrace_pb_le(w, v, 4);
 }
 
-static inline void
-utrace_pb_field_double(struct utrace_pb_writer *w, uint32_t field, double v)
+static inline uint64_t
+utrace_pb_double_bits(double v)
 {
 	uint64_t bits;
 
 	memcpy(&bits, &v, sizeof(bits));
-	utrace_pb_field_fixed64(w, field, bits);
+	return bits;
+}
+
+static inline uint32_t
+utrace_pb_float_bits(float v)
+{
+	uint32_t bits;
+
+	memcpy(&bits, &v, sizeof(bits));
+	return bits;
+}
+
+static inline void
+utrace_pb_field_double(struct utrace_pb_writer *w, uint32_t field, double v)
+{
+	utrace_pb_field_fixed64(w, field, utrace_pb_double_bits(v));
 }
 
 static inline void
 utrace_pb_field_float(struct utrace_pb_writer *w, uint32_t field, float v)
 {
-	uint32_t bits;
-
-	memcpy(&bits, &v, sizeof(bits));
-	utrace_pb_field_fixed32(w, field, bits);
+	utrace_pb_field_fixed32(w, field, utrace_pb_float_bits(v));
 }
 
 static inline void

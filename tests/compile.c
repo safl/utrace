@@ -8,6 +8,16 @@
  * held to each of them. The function calls what a header defines, so its bodies are instantiated.
  */
 #include <utrace_pb.h>
+#include <utrace/perfetto/builtin_clock.h>
+#include <utrace/perfetto/clock_snapshot.h>
+#include <utrace/perfetto/counter_descriptor.h>
+#include <utrace/perfetto/debug_annotation.h>
+#include <utrace/perfetto/process_descriptor.h>
+#include <utrace/perfetto/thread_descriptor.h>
+#include <utrace/perfetto/trace.h>
+#include <utrace/perfetto/trace_packet.h>
+#include <utrace/perfetto/track_descriptor.h>
+#include <utrace/perfetto/track_event.h>
 
 int
 utrace_compile_check(void);
