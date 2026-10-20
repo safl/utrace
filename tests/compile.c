@@ -8,6 +8,7 @@
  * held to each of them. The function calls what a header defines, so its bodies are instantiated.
  */
 #include <utrace_pb.h>
+#include <utrace.h>
 #include <utrace/perfetto/builtin_clock.h>
 #include <utrace/perfetto/clock_snapshot.h>
 #include <utrace/perfetto/counter_descriptor.h>
@@ -42,4 +43,50 @@ utrace_compile_check(void)
 	utrace_pb_field_bytes(&w, 8, "x", 1);
 	utrace_pb_end(&w);
 	return utrace_pb_flush(&w);
+}
+
+int
+utrace_compile_check_api(void);
+
+int
+utrace_compile_check_api(void)
+{
+	uint8_t buf[1024];
+	uint8_t out[1024];
+	struct utrace_pb_mem mem = {out, sizeof(out), 0};
+	struct utrace_clock clocks[1];
+	struct utrace_opts opts;
+	struct utrace t;
+
+	opts.clock_id      = utrace_perfetto_BUILTIN_CLOCK_MONOTONIC;
+	opts.sequence_id   = 2;
+	clocks[0].clock_id = utrace_perfetto_BUILTIN_CLOCK_BOOTTIME;
+	clocks[0].ts       = 1;
+
+	utrace_open(&t, buf, sizeof(buf), utrace_pb_mem_sink(&mem), &opts);
+	utrace_clock_snapshot(&t, clocks, 1);
+	utrace_track_process(&t, 1, 1, "p");
+	utrace_track_thread(&t, 2, 1, 1, "t");
+	utrace_track(&t, 3, 1, "d");
+	utrace_track_counter(&t, 4, 3, "c", "u");
+	utrace_event_start(&t, UTRACE_SLICE_BEGIN, 2, 1);
+	utrace_event_name(&t, "s");
+	utrace_event_category(&t, "c");
+	utrace_event_flow(&t, 1);
+	utrace_event_flow_end(&t, 2);
+	utrace_event_arg_int(&t, "i", -1);
+	utrace_event_arg_uint(&t, "u", 1);
+	utrace_event_arg_double(&t, "d", 1.0);
+	utrace_event_arg_bool(&t, "b", 1);
+	utrace_event_arg_str(&t, "s", "s");
+	utrace_event_finish(&t);
+	utrace_slice_end(&t, 2, 2);
+	utrace_slice_begin(&t, 3, 3, "k");
+	utrace_slice_end(&t, 3, 4);
+	utrace_instant(&t, 2, 5, "i");
+	utrace_counter(&t, 4, 6, 1);
+	utrace_counter_double(&t, 4, 7, 1.0);
+	(void)utrace_packet_start_at(&t, 8);
+	utrace_packet_finish(&t);
+	return utrace_close(&t);
 }

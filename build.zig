@@ -96,6 +96,7 @@ pub fn build(b: *std.Build) void {
 
     const zig_tests = [_]struct { file: []const u8, c: ?*std.Build.Step.TranslateC }{
         .{ .file = "tests/pb_test.zig", .c = c },
+        .{ .file = "tests/trace_test.zig", .c = c },
         .{ .file = "tests/gen_test.zig", .c = gen_c },
         .{ .file = "tests/descriptor_test.zig", .c = null },
     };
