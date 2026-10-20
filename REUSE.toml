@@ -9,3 +9,11 @@ path = ["LICENSE", "README.md"]
 precedence = "closest"
 SPDX-FileCopyrightText = "Simon A. F. Lund <os@safl.dk>"
 SPDX-License-Identifier = "BSD-3-Clause"
+
+# Perfetto's protos, vendored unmodified. Most carry Perfetto's license notice
+# without SPDX tags; some, generated upstream, carry nothing.
+[[annotations]]
+path = ["third-party/perfetto/protos/**", "third-party/perfetto/VERSION"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "The Android Open Source Project"
+SPDX-License-Identifier = "Apache-2.0"
