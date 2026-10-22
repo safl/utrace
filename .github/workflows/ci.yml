@@ -6,7 +6,8 @@
 # they differ from what is committed, runs zig build test natively and on
 # big-endian s390x, the sanitizer builds, and loads the example's trace with
 # a pinned trace_processor. cross runs the example on four architectures
-# under qemu and compares the traces.
+# under qemu and compares the traces. meson builds the example as a Meson
+# consumer of an installed uTrace and of a wrap (tests/meson/check.sh).
 name: ci
 
 on:
@@ -75,3 +76,11 @@ jobs:
           version: ${{ env.ZIG_VERSION }}
       - run: sudo apt-get update && sudo apt-get install -y qemu-user
       - run: zig build cross -fqemu --summary all
+
+  meson:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y meson ninja-build pkg-config
+      - run: tests/meson/check.sh

@@ -94,6 +94,26 @@ utrace_pb_end(w);
 utrace_packet_finish(&t);
 ```
 
+### With Meson
+
+uTrace has a `meson.build` for Meson projects and packagers; it compiles
+nothing. A project takes it with `dependency('utrace')`, which finds an
+installed uTrace through its `utrace.pc`, or falls back to a wrap in the
+project's `subprojects/utrace.wrap`:
+
+```ini
+[wrap-git]
+url = https://github.com/safl/utrace.git
+revision = <a commit or tag>
+depth = 1
+
+[provide]
+dependency_names = utrace
+```
+
+`meson install` puts the headers under `include/`, both licences under
+`share/licenses/utrace/` and `utrace.pc`, which has `Cflags` and no `Libs`.
+
 ## Layout
 
 ```
@@ -105,6 +125,8 @@ third-party/perfetto/        Perfetto's protos, unmodified, and the release they
 third-party/protobuf/        protobuf's descriptor.proto, for the decoder's tests
 examples/gpu_queues.c        a host thread, a device and two queues
 tests/                       what zig build test, cross, asan and tp run
+tests/meson/                 the Meson consumer check, installed and wrapped
+meson.build                  for Meson consumers and packagers
 ```
 
 ## Regenerating the writers
@@ -133,6 +155,7 @@ zig build test -Dtarget=s390x-linux-musl -fqemu    # the same on big-endian, und
 zig build cross -fqemu                  # the example on four architectures, compared byte for byte
 zig build asan                          # the system cc and c++ with ASan and UBSan
 zig build tp -Dtrace-processor=<trace_processor_shell>   # the example's trace, as Perfetto reads it
+tests/meson/check.sh                    # Meson consumers: installed, and through a wrap
 pre-commit run --all-files              # whitespace, REUSE, clang-format, zig fmt
 ```
 
