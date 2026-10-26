@@ -6,7 +6,7 @@
 # There is nothing to compile: as a subproject this declares the headers,
 # and installed it puts them and a utrace.pc in place. The version matches
 # build.zig.zon's, which CI checks.
-project('utrace', 'c', version: '0.1.0', license: 'BSD-3-Clause AND Apache-2.0', meson_version: '>=1.1')
+project('utrace', 'c', version: '0.1.1', license: 'BSD-3-Clause AND Apache-2.0', meson_version: '>=1.1')
 
 utrace_dep = declare_dependency(include_directories: include_directories('include'))
 meson.override_dependency('utrace', utrace_dep)

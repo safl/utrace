@@ -4,7 +4,7 @@
 
 .{
     .name = .utrace,
-    .version = "0.1.0",
+    .version = "0.1.1",
     .fingerprint = 0x1d541f6d95e98b3d,
     .minimum_zig_version = "0.16.0",
     .dependencies = .{},
