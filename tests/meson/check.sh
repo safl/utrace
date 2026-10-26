@@ -5,8 +5,9 @@
 #
 # Checks uTrace's meson.build the two ways a Meson project takes it: installed,
 # found through utrace.pc, and fetched by a wrap-git of this checkout's HEAD.
-# Each builds the example as a consumer and runs it. Run from the repository's
-# top; needs meson, ninja, pkg-config, a C compiler and git.
+# Each builds the example as a consumer and runs it; the wrapped build must
+# install uTrace by default and nothing with skip-install=true. Run from the
+# repository's top; needs meson, ninja, pkg-config, a C compiler and git.
 set -eu
 
 top=$PWD
@@ -46,4 +47,18 @@ WRAP
 PKG_CONFIG_PATH= meson setup --wrap-mode=forcefallback "$tmp/c2" "$tmp/w" > /dev/null
 ninja -C "$tmp/c2" > /dev/null
 (cd "$tmp" && ./c2/gpu_queues c2.pftrace > /dev/null && test -s c2.pftrace)
+DESTDIR="$tmp/c2-dest" meson install -C "$tmp/c2" > /dev/null
+for f in utrace.h utrace/perfetto/track_event.h licenses/utrace/Apache-2.0.txt utrace.pc; do
+	if [ -z "$(find "$tmp/c2-dest" -path "*/$f")" ]; then
+		echo "a wrapped uTrace did not install $f" >&2
+		exit 1
+	fi
+done
+
+meson configure -Dutrace:skip-install=true "$tmp/c2" > /dev/null
+DESTDIR="$tmp/c2-skip" meson install -C "$tmp/c2" > /dev/null
+if [ -n "$(find "$tmp/c2-skip" -path '*utrace*' 2> /dev/null)" ]; then
+	echo "a wrapped uTrace installed with skip-install=true" >&2
+	exit 1
+fi
 echo "meson: installed and wrapped consumers built and ran"

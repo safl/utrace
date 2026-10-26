@@ -113,6 +113,10 @@ dependency_names = utrace
 
 `meson install` puts the headers under `include/`, both licences under
 `share/licenses/utrace/` and `utrace.pc`, which has `Cflags` and no `Libs`.
+As a subproject uTrace installs these into the project's prefix, as Meson
+subprojects do; a project that builds against uTrace without shipping it sets
+`-Dutrace:skip-install=true`, or `default_options: ['skip-install=true']` on
+its `subproject('utrace')` call.
 
 ## Layout
 
