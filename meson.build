@@ -11,8 +11,12 @@ project('utrace', 'c', version: '0.1.0', license: 'BSD-3-Clause AND Apache-2.0',
 utrace_dep = declare_dependency(include_directories: include_directories('include'))
 meson.override_dependency('utrace', utrace_dep)
 
-install_subdir('include', install_dir: get_option('includedir'), strip_directory: true)
-install_data('LICENSES/BSD-3-Clause.txt', 'LICENSES/Apache-2.0.txt', install_dir: get_option('datadir') / 'licenses' / 'utrace')
+# A parent project that takes uTrace as a subproject only to build against it
+# sets skip-install=true, so nothing of uTrace lands in its prefix
+if not get_option('skip-install')
+  install_subdir('include', install_dir: get_option('includedir'), strip_directory: true)
+  install_data('LICENSES/BSD-3-Clause.txt', 'LICENSES/Apache-2.0.txt', install_dir: get_option('datadir') / 'licenses' / 'utrace')
 
-import('pkgconfig').generate(name: 'utrace', description: 'Perfetto traces from C, header-only',
-  url: 'https://github.com/safl/utrace')
+  import('pkgconfig').generate(name: 'utrace', description: 'Perfetto traces from C, header-only',
+    url: 'https://github.com/safl/utrace')
+endif

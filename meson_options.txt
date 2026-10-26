@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+option('skip-install', type: 'boolean', value: false,
+       description: 'as a subproject: install neither the headers, the licences nor utrace.pc')
